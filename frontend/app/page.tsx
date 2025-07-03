@@ -13,7 +13,8 @@ export default function Home() {
     colorCount: "monochrome" | "2-4" | "5-7";
   }) => {
     try {
-      const response = await fetch("/api/generate", {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+      const response = await fetch(`${backendUrl}/generateMockups`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
