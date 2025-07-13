@@ -69,3 +69,6 @@ next-env.d.ts
 # OS generated files
 Thumbs.db
 Desktop.ini
+
+# Firebase
+*firebase*.json

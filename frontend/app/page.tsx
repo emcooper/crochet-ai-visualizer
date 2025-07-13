@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
-  const { user, loading } = useAuth();
+  const { user, loading, getIdToken } = useAuth();
 
   const handleSubmit = async (formData: {
     projectDescription: string;
@@ -16,16 +16,26 @@ export default function Home() {
     colorCount: "monochrome" | "2-4" | "5-7";
   }) => {
     try {
+      // Get the authentication token
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error("Authentication token not available");
+      }
+
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
       const response = await fetch(`${backendUrl}/generateMockups`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication failed. Please sign in again.");
+        }
         throw new Error("Failed to generate images");
       }
 

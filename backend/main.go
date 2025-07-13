@@ -48,45 +48,49 @@ func buildPrompt(input GenerateRequest) string {
 // generateMockupsHandler handles the POST request for generating crochet mockups
 func generateMockupsHandler(imageGenerator ImageGenerator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
+		// Get authenticated user context
+		authCtx := GetAuthContext(r)
+		if authCtx == nil {
+			http.Error(w, "Authentication context not found", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Processing image generation request for user: %s", authCtx.UserID)
+
 		// Parse request body
 		var req GenerateRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Printf("Error parsing request body for user %s: %v", authCtx.UserID, err)
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
 		// Validate required fields
 		if req.ProjectDescription == "" || req.ColorVibe == "" || req.ColorCount == "" {
+			log.Printf("Missing required fields for user %s", authCtx.UserID)
 			http.Error(w, "Missing required fields: projectDescription, colorVibe, colorCount", http.StatusBadRequest)
 			return
 		}
 
 		// Build prompt
 		prompt := buildPrompt(req)
+		log.Printf("Generated prompt for user %s: %s", authCtx.UserID, prompt)
 
 		// Generate images
 		ctx := r.Context()
 		images, err := imageGenerator.GenerateImages(ctx, prompt)
 		if err != nil {
-			log.Printf("Error generating images: %v", err)
+			log.Printf("Error generating images for user %s: %v", authCtx.UserID, err)
 			http.Error(w, "Failed to generate images", http.StatusInternalServerError)
 			return
 		}
+
+		log.Printf("Successfully generated %d images for user %s", len(images), authCtx.UserID)
 
 		// Create response
 		response := GenerateResponse{
@@ -99,7 +103,7 @@ func generateMockupsHandler(imageGenerator ImageGenerator) http.HandlerFunc {
 
 		// Encode and send response
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("Error encoding response: %v", err)
+			log.Printf("Error encoding response for user %s: %v", authCtx.UserID, err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -128,6 +132,14 @@ func main() {
 
 	log.Print("starting server...")
 	
+	// Initialize Firebase authentication
+	ctx := context.Background()
+	authManager, err := NewFirebaseAuthManager(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase auth: %v", err)
+	}
+	log.Print("Firebase authentication initialized")
+	
 	// Initialize the image generator factory
 	factory := NewImageGeneratorFactory()
 	
@@ -138,7 +150,6 @@ func main() {
 	}
 	
 	// Initialize the image generator
-	ctx := context.Background()
 	imageGenerator, err := factory.CreateImageGenerator(generatorType, ctx)
 	if err != nil {
 		log.Fatalf("Failed to initialize image generator: %v", err)
@@ -146,9 +157,12 @@ func main() {
 	
 	log.Printf("Using image generator: %s", generatorType)
 	
+	// Create authenticated handler for generateMockups
+	authenticatedGenerateHandler := AuthMiddleware(authManager)(http.HandlerFunc(generateMockupsHandler(imageGenerator)))
+	
 	// Register handlers
 	http.HandleFunc("/", handler)
-	http.HandleFunc("/generateMockups", generateMockupsHandler(imageGenerator))
+	http.Handle("/generateMockups", authenticatedGenerateHandler)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
