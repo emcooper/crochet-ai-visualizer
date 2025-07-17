@@ -6,11 +6,11 @@ import { AuthProvider } from "@/contexts/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Crochet AI Visualizer",
-  description: "Generate AI mockups of your crochet projects",
+  title: "StitchViz",
+  description: "Turn your crochet ideas into beautiful mockups using AI-powered visualizations",
   openGraph: {
-    title: "Crochet AI Visualizer",
-    description: "Generate AI mockups of your crochet projects",
+    title: "StitchViz",
+    description: "Turn your crochet ideas into beautiful mockups using AI-powered visualizations",
     type: "website",
   },
 };
