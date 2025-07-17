@@ -5,10 +5,6 @@ interface ImageGalleryProps {
 }
 
 export default function ImageGallery({ images }: ImageGalleryProps) {
-  const handleDownload = (imageUrl: string) => {
-    window.open(imageUrl, "_blank");
-  };
-
   if (images.length === 0) {
     return null;
   }
